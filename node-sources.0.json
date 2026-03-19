@@ -2283,7 +2283,7 @@
     "type": "shell",
     "commands": [
       "python3 flatpak-node/populate_pnpm_store.py flatpak-node/pnpm-manifest.json flatpak-node/pnpm-tarballs flatpak-node/pnpm-store",
-      "echo \"store-dir=$PWD/flatpak-node/pnpm-store\" >> .npmrc",
+      "grep -q '^store-dir=' .npmrc 2>/dev/null || echo \"store-dir=$PWD/flatpak-node/pnpm-store\" >> .npmrc",
       "bash flatpak-node/setup_sdk_node_headers.sh"
     ]
   }
