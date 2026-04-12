@@ -27,23 +27,17 @@ modules:
       - cp -f cargo/config .cargo/config.toml
       - corepack enable
       - pnpm install --offline --frozen-lockfile
-      - pnpm tauri build --config tauri.flatpak.conf.json --bundles none
+      - pnpm tauri build --config packaging/flatpak/tauri.flatpak.conf.json --bundles none
       - install -Dm0755 src-tauri/target/release/openkara ${FLATPAK_DEST}/bin/openkara
-      - install -Dm0644 io.github.thedavidweng.OpenKara.desktop ${FLATPAK_DEST}/share/applications/io.github.thedavidweng.OpenKara.desktop
-      - install -Dm0644 io.github.thedavidweng.OpenKara.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.thedavidweng.OpenKara.metainfo.xml
+      - install -Dm0644 packaging/flatpak/io.github.thedavidweng.OpenKara.desktop ${FLATPAK_DEST}/share/applications/io.github.thedavidweng.OpenKara.desktop
+      - install -Dm0644 packaging/flatpak/io.github.thedavidweng.OpenKara.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.thedavidweng.OpenKara.metainfo.xml
       - install -Dm0644 src-tauri/icons/128x128.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/io.github.thedavidweng.OpenKara.png
     sources:
       - type: archive
-        url: https://github.com/thedavidweng/OpenKara/archive/refs/tags/v0.2.0.tar.gz
-        sha256: aaba8240db0969cb3c56cac0753bf277d00fba467c59dd256e955cd9ddd37989
+        url: https://github.com/thedavidweng/OpenKara/archive/refs/tags/v0.5.0.tar.gz
+        sha256: 2974a81449a18ea2c86cac70c29c791fbf8c3580ab7e4e62554d4860bccdaa36
         strip-components: 1
       - type: file
         path: packaging/flatpak/generated/cargo-sources.json
       - type: file
         path: packaging/flatpak/generated/node-sources.0.json
-      - type: file
-        path: tauri.flatpak.conf.json
-      - type: file
-        path: io.github.thedavidweng.OpenKara.desktop
-      - type: file
-        path: io.github.thedavidweng.OpenKara.metainfo.xml
