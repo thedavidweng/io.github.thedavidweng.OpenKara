@@ -5,13 +5,10 @@
   <project_license>MIT</project_license>
   <name>OpenKara</name>
   <summary>Turn your music library into a karaoke stage</summary>
-  <developer id="io.github.thedavidweng">
-    <name>thedavidweng</name>
-  </developer>
+  <developer_name>thedavidweng</developer_name>
   <launchable type="desktop-id">io.github.thedavidweng.OpenKara.desktop</launchable>
   <url type="homepage">https://github.com/thedavidweng/OpenKara</url>
   <url type="bugtracker">https://github.com/thedavidweng/OpenKara/issues</url>
-  <url type="vcs-browser">https://github.com/thedavidweng/OpenKara</url>
   <description>
     <p>OpenKara is an open-source desktop karaoke app that turns songs you already own into karaoke tracks on your computer.</p>
     <p>It separates vocals on-device, shows synced lyrics or CD+G graphics, and stores the karaoke library in a portable local folder.</p>
@@ -19,20 +16,20 @@
   <screenshots>
     <screenshot type="default">
       <caption>Library view with imported karaoke tracks and cover art</caption>
-      <image type="source">https://raw.githubusercontent.com/thedavidweng/OpenKara/v0.2.0/packaging/flatpak/screenshots/library.png</image>
+      <image type="source">https://raw.githubusercontent.com/thedavidweng/OpenKara/v0.5.1/packaging/flatpak/screenshots/library.png</image>
     </screenshot>
     <screenshot>
       <caption>Player view with synced lyrics and queue controls</caption>
-      <image type="source">https://raw.githubusercontent.com/thedavidweng/OpenKara/v0.2.0/packaging/flatpak/screenshots/player.png</image>
+      <image type="source">https://raw.githubusercontent.com/thedavidweng/OpenKara/v0.5.1/packaging/flatpak/screenshots/player.png</image>
     </screenshot>
     <screenshot>
       <caption>Setup flow for choosing a portable karaoke library folder</caption>
-      <image type="source">https://raw.githubusercontent.com/thedavidweng/OpenKara/v0.2.0/packaging/flatpak/screenshots/setup.png</image>
+      <image type="source">https://raw.githubusercontent.com/thedavidweng/OpenKara/v0.5.1/packaging/flatpak/screenshots/setup.png</image>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1"/>
   <releases>
-    <release version="0.2.0" date="2026-03-19">
+    <release version="0.5.1" date="2026-04-13">
       <description>
         <ul>
           <li>Cross-platform desktop karaoke powered by on-device AI stem separation.</li>

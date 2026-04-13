@@ -2233,7 +2233,7 @@
       "version=$(node --version | sed \"s/^v//\")",
       "nodedir=$(dirname \"$(dirname \"$(which node)\")\")",
       "mkdir -p \"flatpak-node/cache/node-gyp/$version\"",
-      "ln -snf \"$nodedir/include\" \"flatpak-node/cache/node-gyp/$version/include\"",
+      "ln -s \"$nodedir/include\" \"flatpak-node/cache/node-gyp/$version/include\"",
       "echo 11 > \"flatpak-node/cache/node-gyp/$version/installVersion\""
     ],
     "dest-filename": "setup_sdk_node_headers.sh",
@@ -2283,7 +2283,7 @@
     "type": "shell",
     "commands": [
       "python3 flatpak-node/populate_pnpm_store.py flatpak-node/pnpm-manifest.json flatpak-node/pnpm-tarballs flatpak-node/pnpm-store",
-      "grep -q '^store-dir=' .npmrc 2>/dev/null || echo \"store-dir=$PWD/flatpak-node/pnpm-store\" >> .npmrc",
+      "echo \"store-dir=$PWD/flatpak-node/pnpm-store\" >> .npmrc",
       "bash flatpak-node/setup_sdk_node_headers.sh"
     ]
   }
