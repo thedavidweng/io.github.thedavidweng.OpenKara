@@ -1,0 +1,80 @@
+app-id: io.github.thedavidweng.OpenKara
+runtime: org.gnome.Platform
+runtime-version: "50"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node24
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: openkara
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=dri
+build-options:
+  append-path: /usr/lib/sdk/node24/bin:/usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/openkara/cargo
+    CARGO_NET_OFFLINE: "true"
+    XDG_CACHE_HOME: /run/build/openkara/.cache
+modules:
+  - name: openkara
+    buildsystem: simple
+    build-commands:
+      - mkdir -p .cargo
+      - printf '[source.crates-io]\nreplace-with = "vendored-sources"\n\n[source.vendored-sources]\ndirectory = "cargo/vendor"\n' > .cargo/config.toml
+      - sh -c 'mkdir -p src-tauri/generated/onnxruntime && runtime_path="$(find src-tauri/generated/onnxruntime-source -name "libonnxruntime.so*" ! -name "*providers*" ! -name "*.a" | sort | head -n 1)" && test -n "$runtime_path" && cp -f "$runtime_path" src-tauri/generated/onnxruntime/libonnxruntime.so && printf "{\"version\":\"v1.27.1\",\"target\":\"flatpak-linux\",\"sourceArchive\":\"flatpak-builder-source\"}\n" > src-tauri/generated/onnxruntime/manifest.json'
+      - npm install -g --prefix /run/build/openkara/pnpm-install ./pnpm-package
+      # pnpm 11 indexes the offline store in store-dir/v11/index.db (SQLite +
+      # msgpackr). Populate reuses pnpm's extract worker so CAFS + index.db match
+      # a normal install. Legacy JSON index/ files leave packages invisible.
+      - PATH="/run/build/openkara/pnpm-install/bin:$PATH" node flatpak-node/populate_pnpm_store.mjs flatpak-node/pnpm-manifest.json flatpak-node/pnpm-tarballs flatpak-node/pnpm-store
+      # Point every lockfile resolution at the already-downloaded file: tarballs
+      # so install uses the localTarball fetcher. Registry URLs are unreachable
+      # inside the sandbox (EAI_AGAIN); file: works with --offline even if the
+      # pre-seeded store is not consulted for a given package.
+      - node flatpak-node/rewrite_lockfile_local_tarballs.mjs
+      # --trust-lockfile: pnpm 11 re-applies supply-chain policy (minimumReleaseAge /
+      # trustPolicy) by fetching registry metadata even with --offline; that needs
+      # network and fails inside the Flatpak sandbox (EAI_AGAIN). The lockfile is
+      # already integrity-pinned via flatpak-node sources — safe to trust here.
+      - PATH="/run/build/openkara/pnpm-install/bin:$PATH" pnpm install --offline --frozen-lockfile --trust-lockfile
+      - PATH="/run/build/openkara/pnpm-install/bin:$PATH" pnpm tauri build --config packaging/flatpak/tauri.flatpak.conf.json --no-bundle
+      - install -Dm0755 src-tauri/target/release/openkara ${FLATPAK_DEST}/bin/openkara
+      - install -Dm0644 src-tauri/generated/onnxruntime/libonnxruntime.so ${FLATPAK_DEST}/lib/openkara/onnxruntime/libonnxruntime.so
+      - install -Dm0644 src-tauri/generated/onnxruntime-source/LICENSE.onnxruntime ${FLATPAK_DEST}/share/licenses/io.github.thedavidweng.OpenKara/onnxruntime/LICENSE
+      - install -Dm0644 LICENSE ${FLATPAK_DEST}/share/licenses/io.github.thedavidweng.OpenKara/LICENSE
+      - install -Dm0644 packaging/flatpak/io.github.thedavidweng.OpenKara.desktop ${FLATPAK_DEST}/share/applications/io.github.thedavidweng.OpenKara.desktop
+      - install -Dm0644 packaging/flatpak/io.github.thedavidweng.OpenKara.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.thedavidweng.OpenKara.metainfo.xml
+      - install -Dm0644 src-tauri/icons/128x128.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/io.github.thedavidweng.OpenKara.png
+      - install -Dm0644 src-tauri/icons/128x128@2x.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.thedavidweng.OpenKara.png
+    sources:
+      - type: archive
+        url: https://github.com/thedavidweng/OpenKara/archive/refs/tags/v0.13.2.tar.gz
+        sha256: 01f145d6ff6c046fc69aa41dcc6905ea0c317ae675b6bcc8e90ccbf728233ae8
+        strip-components: 1
+      - cargo-sources.json
+      - type: archive
+        url: https://registry.npmjs.org/pnpm/-/pnpm-11.20.0.tgz
+        sha256: 34e198cb1e43237517ecedfd31f9ae26a6c0a3e5366ce58a2d05f4b21fb5f19a
+        dest: pnpm-package
+      # ONNX Runtime archives come from the openkara-models catalog snapshot;
+      # the renderer injects the URL and digest so no version is hand-pinned
+      # here. The catalog archives are flat (no directory prefix).
+      - type: archive
+        url: https://github.com/thedavidweng/openkara-models/releases/download/infra-2026-08-07-001/onnxruntime-1.27.1-openkara-x86_64-unknown-linux-gnu-reduced.tar.gz
+        sha256: fc71dfb273978b8cf4cc5e84df091a4ee0712d681d27487ca4c4e3083def27eb
+        strip-components: 0
+        dest: src-tauri/generated/onnxruntime-source
+        only-arches:
+          - x86_64
+      - type: archive
+        url: https://github.com/thedavidweng/openkara-models/releases/download/infra-2026-08-07-001/onnxruntime-1.27.1-openkara-aarch64-unknown-linux-gnu-reduced.tar.gz
+        sha256: 7115205ce9e537323ba4bdfd959604cd238351b2e0f04574fb726bc365b00e7c
+        strip-components: 0
+        dest: src-tauri/generated/onnxruntime-source
+        only-arches:
+          - aarch64
+      - node-sources.0.json
