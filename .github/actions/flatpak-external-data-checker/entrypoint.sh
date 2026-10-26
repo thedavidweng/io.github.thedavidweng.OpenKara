@@ -11,17 +11,106 @@ git config --global user.email "sysadmin@flathub.org"
 mkdir flathub
 cd flathub || exit
 
-gh repo list flathub --visibility public -L 8000 --json url --json isArchived --jq '.[] | select(.isArchived == false)|.url' | parallel "git clone --depth 1 {}"
+echo "==> Fetching inactive repos"
+inactive_repos_url="https://builds.flathub.org/api/inactive-repos.txt"
+inactive_repos_file=$(mktemp) || exit 1
 
-echo "==> Deleting inactive repos"
-base_url="https://raw.githubusercontent.com/flathub-infra/flathub-inactive-repo-list/refs/heads/main/"
-for file in inactive.txt manual_inactive.txt; do
-  curl -s "${base_url}${file}" | while read folder; do
-    test -d "$folder" && echo "==> Deleting $folder" && rm -rf "$folder" || true
-  done
+if ! curl --fail --silent --show-error --location \
+    --connect-timeout 10 --max-time 60 \
+    --output "$inactive_repos_file" "$inactive_repos_url"; then
+    rm -f -- "$inactive_repos_file"
+    exit 1
+fi
+
+while IFS= read -r folder || [[ -n "$folder" ]]; do
+    if [[ -z "$folder" || ! "$folder" =~ ^[A-Za-z0-9._-]+$ || "$folder" == "." || "$folder" == ".." ]]; then
+        echo "Invalid inactive repository name" >&2
+        rm -f -- "$inactive_repos_file"
+        exit 1
+    fi
+done < "$inactive_repos_file"
+
+declare -A inactive_repos=()
+while IFS= read -r folder || [[ -n "$folder" ]]; do
+    inactive_repos["$folder"]=1
+done < "$inactive_repos_file"
+
+rm -f -- "$inactive_repos_file"
+
+valid_repo_name() {
+    [[ "$1" =~ ^[A-Za-z0-9._-]+$ && "$1" != "." && "$1" != ".." ]]
+}
+
+repos=()
+if [[ -n "${APP_ID:-}" ]]; then
+    if ! valid_repo_name "$APP_ID"; then
+        echo "Invalid application ID" >&2
+        exit 1
+    fi
+    if [[ -z "${inactive_repos[$APP_ID]:-}" ]]; then
+        active=$(gh api "repos/flathub/$APP_ID" --jq '.archived == false and .private == false') || exit 1
+        [[ "$active" == true ]] && repos+=("$APP_ID")
+    fi
+else
+    shard=$(((GITHUB_RUN_NUMBER - 1) % 6))
+
+    # Code search is only used to check extra-data apps on every run. Its
+    # index is incomplete, so every repo is also covered by its shard below.
+    echo "==> Searching for extra-data apps"
+    declare -A extra_data_repos=()
+    for extension in json yaml yml; do
+        query="\"extra-data\" org:flathub in:file extension:$extension"
+        page=1
+        while :; do
+            sleep 6.1
+            if ! result=$(gh api --method GET search/code \
+                -f q="$query" -F per_page=100 -F page="$page"); then
+                echo "Code search failed: $query (page $page)" >&2
+                break
+            fi
+            if ! jq -e '.incomplete_results == false and .total_count < 1000' \
+                <<< "$result" > /dev/null; then
+                echo "Incomplete search or 1000-result ceiling reached: $query (page $page)" >&2
+            fi
+            while IFS= read -r repo; do
+                [[ -n "$repo" ]] && extra_data_repos["$repo"]=1
+            done < <(jq -r '.items[].repository | select(.private == false) | .name' <<< "$result")
+            total=$(jq -r '.total_count' <<< "$result") || break
+            ((page * 100 < total)) || break
+            ((page++))
+        done
+    done
+
+    echo "==> Listing repos for shard $shard/6"
+    org_repos=$(gh api --paginate "orgs/flathub/repos?type=public&per_page=100" \
+        --jq '.[] | select(.archived == false and .private == false) | .name') || exit 1
+    while IFS= read -r repo; do
+        valid_repo_name "$repo" || continue
+        [[ -z "${inactive_repos[$repo]:-}" ]] || continue
+        if [[ -z "${extra_data_repos[$repo]:-}" ]]; then
+            checksum=$(printf '%s' "$repo" | cksum)
+            checksum=${checksum%% *}
+            ((checksum % 6 == shard)) || continue
+        fi
+        repos+=("$repo")
+    done <<< "$org_repos"
+fi
+
+echo "==> Cloning ${#repos[@]} repos"
+if ((${#repos[@]})); then
+    printf '%s\n' "${repos[@]}" | \
+        parallel -j8 "git clone --quiet --depth 1 https://github.com/flathub/{}"
+fi
+
+checker_apps=()
+for repo in "${repos[@]}"; do
+    if [[ ! -d "$repo" ]]; then
+        echo "Failed to clone $repo" >&2
+        continue
+    fi
+    grep -rqE --exclude-dir=.git 'extra-data|x-checker-data|\.AppImage' "$repo" || continue
+    checker_apps+=("$repo")
 done
-
-mapfile -t checker_apps < <( grep -rl -E 'extra-data|x-checker-data|\.AppImage' | cut -d/ -f1 | sort -u | shuf )
 
 for repo in "${checker_apps[@]}"; do
     FEDC_OPTS=()
